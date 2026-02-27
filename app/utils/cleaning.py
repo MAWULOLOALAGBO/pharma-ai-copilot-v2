@@ -55,6 +55,29 @@ COLUMN_ALIASES = {
 # ------------------------------------------------------------
 # 2) Convertisseur de dates Excel → datetime
 # ------------------------------------------------------------
+
+def fix_duplicate_columns(df):
+    """
+    Renomme automatiquement les colonnes dupliquées.
+    Exemple : date_peremption, date_peremption → date_peremption_1, date_peremption_2
+    """
+    cols = df.columns
+    new_cols = []
+    seen = {}
+
+    for col in cols:
+        col_norm = col.strip()
+        if col_norm not in seen:
+            seen[col_norm] = 0
+            new_cols.append(col_norm)
+        else:
+            seen[col_norm] += 1
+            new_cols.append(f"{col_norm}_{seen[col_norm]}")
+
+    df.columns = new_cols
+    return df
+
+
 def excel_date_to_datetime(value):
     """
     Convertit automatiquement :
