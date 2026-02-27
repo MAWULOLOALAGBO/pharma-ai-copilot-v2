@@ -6,13 +6,39 @@ import unicodedata
 # ============================================================
 # MODULE : cleaning.py
 # Objectif : Nettoyer, corriger et normaliser n'importe quel
-# fichier de stock pharmacie (CSV, XLSX, XLS).
-# Version : Robuste + IA légère (équilibrée)
+# fichier de stock pharmacie (CSV, XLSX, fichiers tests).
+# Version : Robuste + IA légère + anti-duplication
 # ============================================================
 
 
 # ------------------------------------------------------------
-# 1) Normalisation des noms de colonnes (mapping intelligent)
+# 0) Correction automatique des colonnes dupliquées
+# ------------------------------------------------------------
+def fix_duplicate_columns(df):
+    """
+    Renomme automatiquement les colonnes dupliquées.
+    Exemple :
+    date_peremption, date_peremption → date_peremption_1, date_peremption_2
+    """
+    cols = df.columns
+    new_cols = []
+    seen = {}
+
+    for col in cols:
+        col_norm = col.strip()
+        if col_norm not in seen:
+            seen[col_norm] = 0
+            new_cols.append(col_norm)
+        else:
+            seen[col_norm] += 1
+            new_cols.append(f"{col_norm}_{seen[col_norm]}")
+
+    df.columns = new_cols
+    return df
+
+
+# ------------------------------------------------------------
+# 1) Mapping intelligent des colonnes
 # ------------------------------------------------------------
 COLUMN_ALIASES = {
     # Stock actuel
@@ -21,13 +47,11 @@ COLUMN_ALIASES = {
     "quantite": "stock_actuel",
     "quantité": "stock_actuel",
     "stock_physique": "stock_actuel",
-    "stockactuel": "stock_actuel",
 
     # Stock minimum
     "min": "stock_min",
     "seuil": "stock_min",
     "stock_minimum": "stock_min",
-    "seuil_min": "stock_min",
 
     # Prix achat
     "prix_achat": "prix_achat_ht",
@@ -53,39 +77,9 @@ COLUMN_ALIASES = {
 
 
 # ------------------------------------------------------------
-# 2) Convertisseur de dates Excel → datetime
+# 2) Conversion automatique des dates Excel
 # ------------------------------------------------------------
-
-def fix_duplicate_columns(df):
-    """
-    Renomme automatiquement les colonnes dupliquées.
-    Exemple : date_peremption, date_peremption → date_peremption_1, date_peremption_2
-    """
-    cols = df.columns
-    new_cols = []
-    seen = {}
-
-    for col in cols:
-        col_norm = col.strip()
-        if col_norm not in seen:
-            seen[col_norm] = 0
-            new_cols.append(col_norm)
-        else:
-            seen[col_norm] += 1
-            new_cols.append(f"{col_norm}_{seen[col_norm]}")
-
-    df.columns = new_cols
-    return df
-
-
 def excel_date_to_datetime(value):
-    """
-    Convertit automatiquement :
-    - les dates Excel (numéros)
-    - les dates texte
-    - les dates déjà en datetime
-    Retourne NaT si impossible.
-    """
     try:
         if isinstance(value, (int, float)):
             return datetime(1899, 12, 30) + timedelta(days=int(value))
@@ -95,7 +89,7 @@ def excel_date_to_datetime(value):
 
 
 # ------------------------------------------------------------
-# 3) Normalisation du texte (accents, espaces, minuscules)
+# 3) Normalisation du texte
 # ------------------------------------------------------------
 def normalize_text(value):
     if pd.isna(value):
@@ -107,49 +101,41 @@ def normalize_text(value):
 
 
 # ------------------------------------------------------------
-# 4) Détection IA légère des colonnes (fallback)
+# 4) Détection IA légère des colonnes inconnues
 # ------------------------------------------------------------
 def detect_column(col, sample_values):
-    """
-    Détection intelligente si le nom de colonne est inconnu.
-    Analyse :
-    - patterns numériques (CIP = 7 ou 13 chiffres)
-    - formats de dates
-    - valeurs numériques (prix, stock)
-    - mots-clés dans les valeurs
-    """
     col_norm = normalize_text(col)
 
-    # Détection CIP
+    # CIP (7 à 13 chiffres)
     if sample_values.str.match(r"^\d{7,13}$", na=False).sum() > 5:
         return "code_cip"
 
-    # Détection dates
+    # Dates
     if sample_values.apply(lambda x: isinstance(excel_date_to_datetime(x), datetime)).sum() > 5:
         return "date_peremption"
 
-    # Détection prix
+    # Prix
     if sample_values.apply(lambda x: str(x).replace('.', '').isdigit()).sum() > 5:
         if "vente" in col_norm:
             return "prix_vente_ttc"
         if "achat" in col_norm:
             return "prix_achat_ht"
 
-    # Détection stock
+    # Stock
     if sample_values.apply(lambda x: str(x).isdigit()).sum() > 5:
         if "min" in col_norm:
             return "stock_min"
         return "stock_actuel"
 
-    # Détection catégories
+    # Catégories
     if sample_values.str.contains("anti", na=False).sum() > 3:
         return "categorie"
 
-    # Détection fournisseur
+    # Fournisseurs
     if sample_values.str.contains("laboratoire", na=False).sum() > 3:
         return "fournisseur"
 
-    return None  # inconnu → on laisse tel quel
+    return None
 
 
 # ------------------------------------------------------------
@@ -158,18 +144,12 @@ def detect_column(col, sample_values):
 def clean_dataframe(df):
     df = df.copy()
 
-    # -----------------------------
     # A) Nettoyage agressif
-    # -----------------------------
-    df = df.dropna(axis=1, how="all")  # colonnes vides
-    df = df.dropna(axis=0, how="all")  # lignes vides
-
-    # Suppression des lignes TOTAL
+    df = df.dropna(axis=1, how="all")
+    df = df.dropna(axis=0, how="all")
     df = df[~df.apply(lambda row: row.astype(str).str.contains("total", case=False).any(), axis=1)]
 
-    # -----------------------------
     # B) Normalisation des noms de colonnes
-    # -----------------------------
     new_cols = {}
     for col in df.columns:
         col_norm = normalize_text(col)
@@ -177,33 +157,25 @@ def clean_dataframe(df):
             new_cols[col] = COLUMN_ALIASES[col_norm]
     df = df.rename(columns=new_cols)
 
-    # -----------------------------
-    # C) Détection IA légère des colonnes inconnues
-    # -----------------------------
+    # C) Détection IA légère
     for col in df.columns:
         if col not in COLUMN_ALIASES.values():
             detected = detect_column(col, df[col].astype(str))
             if detected:
                 df = df.rename(columns={col: detected})
 
-    # -----------------------------
     # D) Correction des dates
-    # -----------------------------
     if "date_peremption" in df.columns:
         df["date_peremption"] = df["date_peremption"].apply(excel_date_to_datetime)
 
-    # -----------------------------
-    # E) Normalisation des textes
-    # -----------------------------
+    # E) Normalisation du texte
     text_cols = ["designation", "categorie", "fournisseur", "nom_pharmacie", "emplacement_rayon"]
     for col in text_cols:
         if col in df.columns:
             df[col] = df[col].astype(str).apply(normalize_text)
 
-    # -----------------------------
     # F) Conversion des types
-    # -----------------------------
-    int_cols = ["stock_actuel", "stock_min", "code_cip", "id_pharmacie"]
+    int_cols = ["stock_actuel", "stock_min", "code_cip"]
     float_cols = ["prix_achat_ht", "prix_vente_ttc"]
 
     for col in int_cols:
@@ -214,15 +186,11 @@ def clean_dataframe(df):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 
-    # -----------------------------
     # G) Suppression des doublons CIP
-    # -----------------------------
     if "code_cip" in df.columns:
         df = df.drop_duplicates(subset=["code_cip"], keep="first")
 
-    # -----------------------------
     # H) Valeurs manquantes
-    # -----------------------------
     df = df.fillna({
         "categorie": "inconnue",
         "fournisseur": "inconnu",
@@ -238,12 +206,14 @@ def clean_dataframe(df):
 # ------------------------------------------------------------
 def process_uploaded_file(uploaded_file):
     """
-    Charge un fichier CSV/XLSX, nettoie les données et retourne un DataFrame propre.
+    Charge un fichier CSV/XLSX, corrige les colonnes dupliquées,
+    nettoie les données et retourne un DataFrame propre.
     """
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
     else:
-        df = pd.read_excel(uploaded_file)
+        df = pd.read_excel(uploaded_file, engine="openpyxl")
 
-    return clean_dataframe(df)
-
+    df = fix_duplicate_columns(df)
+    df_clean = clean_dataframe(df)
+    return df_clean
