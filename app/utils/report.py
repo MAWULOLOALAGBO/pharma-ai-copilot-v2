@@ -1,86 +1,36 @@
-import pandas as pd
 from datetime import datetime
 
-# ============================================================
-# MODULE : report.py
-# Objectif : Générer un rapport synthétique (Audit ARS + résumé)
-# ============================================================
-
-
-# ------------------------------------------------------------
-# 1) Résumé des alertes
-# ------------------------------------------------------------
-def summarize_alerts(alerts_dict):
-    """
-    Prend le dictionnaire d'alertes généré par alerts.py
-    et retourne un résumé lisible.
-    """
+def summarize_alerts(alerts):
     summary = []
-
-    for key, df in alerts_dict.items():
-        count = len(df)
-        label = key.replace("_", " ").capitalize()
-        summary.append(f"- {label} : {count} produit(s)")
-
+    for key, df in alerts.items():
+        summary.append(f"- {key.replace('_', ' ').capitalize()} : {len(df)} produit(s)")
     return "\n".join(summary)
 
+def summarize_kpis(kpis):
+    return (
+        f"- Valeur totale du stock : {kpis['valeur_stock']:.2f} €\n"
+        f"- Marge brute moyenne : {kpis['marge_moyenne']:.2f} €\n"
+        f"- Produits dormants : {len(kpis['dormants'])}\n"
+        f"- Top produits chers : {len(kpis['top_chers'])}"
+    )
 
-# ------------------------------------------------------------
-# 2) Résumé des KPIs
-# ------------------------------------------------------------
-def summarize_kpis(kpis_dict):
-    """
-    Prend le dictionnaire de KPIs généré par kpis.py
-    et retourne un résumé lisible.
-    """
-    valeur = kpis_dict.get("valeur_stock", 0)
-    marge = kpis_dict.get("marge_moyenne", 0)
-
-    summary = [
-        f"- Valeur totale du stock : {valeur:.2f} €",
-        f"- Marge brute moyenne : {marge:.2f} €",
-        f"- Produits dormants : {len(kpis_dict.get('dormants', []))}",
-        f"- Top produits chers : {len(kpis_dict.get('top_chers', []))}",
-    ]
-
-    return "\n".join(summary)
-
-
-# ------------------------------------------------------------
-# 3) Résumé du risque global
-# ------------------------------------------------------------
 def summarize_risk(df_risk):
-    """
-    Analyse les scores de risque et génère un résumé global.
-    """
-    if "risk_score" not in df_risk.columns:
-        return "Aucun score de risque disponible."
+    avg = df_risk["risk_score"].mean()
+    high = len(df_risk[df_risk["risk_score"] >= 70])
+    mid = len(df_risk[(df_risk["risk_score"] >= 40) & (df_risk["risk_score"] < 70)])
+    low = len(df_risk[df_risk["risk_score"] < 40])
 
-    avg_risk = df_risk["risk_score"].mean()
-    high_risk = df_risk[df_risk["risk_score"] >= 70]
-    medium_risk = df_risk[(df_risk["risk_score"] >= 40) & (df_risk["risk_score"] < 70)]
-    low_risk = df_risk[df_risk["risk_score"] < 40]
+    return (
+        f"- Score moyen : {avg:.1f}/100\n"
+        f"- Risque élevé : {high}\n"
+        f"- Risque moyen : {mid}\n"
+        f"- Risque faible : {low}"
+    )
 
-    summary = [
-        f"- Score de risque moyen : {avg_risk:.1f}/100",
-        f"- Produits à risque élevé : {len(high_risk)}",
-        f"- Produits à risque moyen : {len(medium_risk)}",
-        f"- Produits à faible risque : {len(low_risk)}",
-    ]
-
-    return "\n".join(summary)
-
-
-# ------------------------------------------------------------
-# 4) Rapport complet
-# ------------------------------------------------------------
 def generate_full_report(alerts, kpis, df_risk):
-    """
-    Génère un rapport complet sous forme de texte structuré.
-    """
     date = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-    report = f"""
+    return f"""
 ===============================
    RAPPORT D'ANALYSE PHARMACIE
 ===============================
@@ -104,25 +54,12 @@ Généré le : {date}
 --------------------------------
 4) Recommandations générales
 --------------------------------
-- Vérifier les produits périmés et bientôt périmés.
-- Prioriser l'écoulement des produits à forte valeur.
-- Réapprovisionner les produits en rupture ou en stock critique.
-- Surveiller les produits dormants pour réduire l'immobilisation financière.
-- Contrôler les marges faibles et ajuster les prix si nécessaire.
-
---------------------------------
-5) Données détaillées disponibles
---------------------------------
-- Liste des alertes par catégorie
-- Liste des produits dormants
-- Liste des produits à forte valeur
-- Liste des produits à risque élevé
-- Recommandations individuelles par produit
+- Vérifier les produits périmés
+- Prioriser l'écoulement des produits chers
+- Réapprovisionner les ruptures
+- Surveiller les produits dormants
 
 ================================
 Fin du rapport
 ================================
 """
-
-    return report
-
