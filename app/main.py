@@ -30,9 +30,13 @@ if uploaded_file is None:
 st.subheader("📦 Nettoyage et préparation des données")
 
 try:
+    # 🔥 Nettoyage complet
     df_clean = process_uploaded_file(uploaded_file)
+
     st.success("Fichier importé et nettoyé avec succès.")
-    st.dataframe(df_clean)  # IMPORTANT : pas de .head()
+
+    # 🔥 AFFICHAGE DU DATAFRAME NETTOYÉ UNIQUEMENT
+    st.dataframe(df_clean)
 
 except Exception as e:
     st.error(f"Erreur lors du traitement du fichier : {e}")
@@ -40,8 +44,8 @@ except Exception as e:
 
 st.markdown("---")
 
+# 🚨 ALERTES
 st.subheader("🚨 Alertes pharmaceutiques")
-
 alerts = generate_all_alerts(df_clean)
 
 col1, col2, col3 = st.columns(3)
@@ -65,8 +69,8 @@ for key, df_alert in alerts.items():
 
 st.markdown("---")
 
+# 📊 KPIs
 st.subheader("📊 Indicateurs clés (KPIs)")
-
 kpis = compute_all_kpis(df_clean)
 
 colA, colB = st.columns(2)
@@ -87,8 +91,8 @@ st.dataframe(kpis["repartition_fournisseurs"])
 
 st.markdown("---")
 
+# 🔥 RISQUE
 st.subheader("🔥 Score de risque & recommandations IA")
-
 df_risk = compute_risk_and_recos(df_clean)
 
 st.write("### Tableau complet avec score de risque")
@@ -99,8 +103,8 @@ st.dataframe(df_risk[[
 
 st.markdown("---")
 
+# 📄 RAPPORT
 st.subheader("📄 Rapport complet (Audit ARS)")
-
 report_text = generate_full_report(alerts, kpis, df_risk)
 
 st.text_area("Rapport généré", report_text, height=400)
