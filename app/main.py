@@ -7,10 +7,6 @@ from utils.kpis import compute_all_kpis
 from utils.risk import compute_risk_and_recos
 from utils.report import generate_full_report
 
-# ============================================================
-# CONFIGURATION DE L'APPLICATION
-# ============================================================
-
 st.set_page_config(
     page_title="Pharma-AI Copilot",
     page_icon="💊",
@@ -22,10 +18,6 @@ st.write("Assistant intelligent d'analyse de stock pharmacie")
 
 st.markdown("---")
 
-# ============================================================
-# UPLOAD DU FICHIER
-# ============================================================
-
 uploaded_file = st.file_uploader(
     "Importer un fichier de stock (CSV, XLSX)",
     type=["csv", "xlsx"]
@@ -35,18 +27,13 @@ if uploaded_file is None:
     st.info("Veuillez importer un fichier pour commencer.")
     st.stop()
 
-# ============================================================
-# NETTOYAGE & PRÉPARATION DES DONNÉES
-# ============================================================
-
 st.subheader("📦 Nettoyage et préparation des données")
 
 try:
     df_clean = process_uploaded_file(uploaded_file)
     st.success("Fichier importé et nettoyé avec succès.")
 
-    # 🔥 IMPORTANT : afficher le DataFrame ENTIER, pas .head()
-    # .head() recrée un Arrow Table à partir du fichier original → erreur colonnes dupliquées
+    # 🔥 IMPORTANT : afficher le DataFrame nettoyé, pas .head()
     st.dataframe(df_clean)
 
 except Exception as e:
@@ -54,10 +41,6 @@ except Exception as e:
     st.stop()
 
 st.markdown("---")
-
-# ============================================================
-# ALERTES PHARMACEUTIQUES
-# ============================================================
 
 st.subheader("🚨 Alertes pharmaceutiques")
 
@@ -84,10 +67,6 @@ for key, df_alert in alerts.items():
 
 st.markdown("---")
 
-# ============================================================
-# KPIs
-# ============================================================
-
 st.subheader("📊 Indicateurs clés (KPIs)")
 
 kpis = compute_all_kpis(df_clean)
@@ -110,10 +89,6 @@ st.dataframe(kpis["repartition_fournisseurs"])
 
 st.markdown("---")
 
-# ============================================================
-# SCORE DE RISQUE + RECOMMANDATIONS
-# ============================================================
-
 st.subheader("🔥 Score de risque & recommandations IA")
 
 df_risk = compute_risk_and_recos(df_clean)
@@ -125,10 +100,6 @@ st.dataframe(df_risk[[
 ]])
 
 st.markdown("---")
-
-# ============================================================
-# RAPPORT COMPLET
-# ============================================================
 
 st.subheader("📄 Rapport complet (Audit ARS)")
 
