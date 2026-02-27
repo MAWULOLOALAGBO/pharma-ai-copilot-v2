@@ -8,11 +8,6 @@ import unicodedata
 # ============================================================
 
 def fix_duplicate_columns(df):
-    """
-    Renomme automatiquement les colonnes dupliquées AVANT tout traitement.
-    Exemple :
-    date_peremption, date_peremption → date_peremption_1, date_peremption_2
-    """
     new_cols = []
     seen = {}
 
@@ -184,17 +179,21 @@ def clean_dataframe(df):
 
 def process_uploaded_file(uploaded_file):
     """
-    🔥 VERSION DÉFINITIVE
-    Charge un fichier CSV/XLSX en acceptant les colonnes dupliquées,
-    les renomme proprement, puis nettoie les données.
+    Lecture robuste CSV + XLSX
+    Correction des colonnes dupliquées
+    Nettoyage complet
     """
 
+    # 🔥 CSV : accepte les colonnes dupliquées automatiquement
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file, mangle_dupe_cols=True)
-    else:
-        df = pd.read_excel(uploaded_file, engine="openpyxl", mangle_dupe_cols=True)
 
-    df = fix_duplicate_columns(df)
+    # 🔥 XLSX : on lit normalement, puis on corrige manuellement
+    else:
+        df = pd.read_excel(uploaded_file, engine="openpyxl")
+        df = fix_duplicate_columns(df)
+
+    # 🔥 Nettoyage complet
     df_clean = clean_dataframe(df)
 
     return df_clean
