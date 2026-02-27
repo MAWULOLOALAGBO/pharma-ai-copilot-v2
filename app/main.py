@@ -32,9 +32,7 @@ st.subheader("📦 Nettoyage et préparation des données")
 try:
     df_clean = process_uploaded_file(uploaded_file)
     st.success("Fichier importé et nettoyé avec succès.")
-
-    # 🔥 IMPORTANT : afficher le DataFrame nettoyé, pas .head()
-    st.dataframe(df_clean)
+    st.dataframe(df_clean)  # IMPORTANT : pas de .head()
 
 except Exception as e:
     st.error(f"Erreur lors du traitement du fichier : {e}")
