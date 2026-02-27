@@ -214,6 +214,8 @@ def process_uploaded_file(uploaded_file):
     else:
         df = pd.read_excel(uploaded_file, engine="openpyxl")
 
+    # 🔥 Correction immédiate AVANT tout traitement
     df = fix_duplicate_columns(df)
+
     df_clean = clean_dataframe(df)
     return df_clean
